@@ -10,6 +10,7 @@ import {
   useNodesState,
   useEdgesState,
   MarkerType,
+  ConnectionLineType,
   type Connection,
   type Edge,
   type Node,
@@ -88,6 +89,7 @@ export default function BuilderPage() {
           id: e.id,
           source: e.source,
           target: e.target,
+          type: "step",
           label: COND_LABEL(e.condition),
           data: { condition: e.condition },
           markerEnd: { type: MarkerType.ArrowClosed },
@@ -117,6 +119,7 @@ export default function BuilderPage() {
           {
             ...c,
             id: `e_${Date.now()}`,
+            type: "step",
             label: "always",
             data: { condition: cond },
             markerEnd: { type: MarkerType.ArrowClosed },
@@ -221,6 +224,7 @@ export default function BuilderPage() {
           onNodeClick={(_, n) => { setSelNode(n.id); setSelEdge(null); }}
           onEdgeClick={(_, e) => { setSelEdge(e.id); setSelNode(null); }}
           onPaneClick={() => { setSelNode(null); setSelEdge(null); }}
+          connectionLineType={ConnectionLineType.Step}
           fitView
           colorMode={theme}
         >
