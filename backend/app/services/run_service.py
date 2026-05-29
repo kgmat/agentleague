@@ -105,12 +105,18 @@ async def _execute(run_id: str) -> None:
 
         agents = {a.id: agent_to_dict(a) for a in await _all_agents(session)}
 
+        # Tracks whether the run ended because a feedback loop hit its visit cap
+        # (vs. a clean finish), and which node held the latest draft.
+        loop_state = {"blocked_node": None}
+
         # Callbacks wire the runtime back into persistence + the run's counters.
         async def on_event(event: Event) -> None:
             await message_service.persist_event(session, event)
             # Tick the step counter live so the UI doesn't show 0 mid-run.
             if event.type == "node_start":
                 run.step_count = (run.step_count or 0) + 1
+            if event.type == "route" and event.data.get("blocked_loop_target"):
+                loop_state["blocked_node"] = event.data["blocked_loop_target"]
             await session.commit()
 
         async def on_message(**kwargs) -> None:
@@ -141,10 +147,7 @@ async def _execute(run_id: str) -> None:
                 workflow.graph, agents, run.input.get("text", ""), ctx
             )
             run.status = "completed"
-            run.output = {
-                "text": final_state.get("last_output", ""),
-                "last_node": final_state.get("last_node", ""),
-            }
+            run.output = _build_output(final_state, loop_state["blocked_node"])
             run.step_count = final_state.get("steps", 0)
         except Exception as exc:  # noqa: BLE001 - surface any failure on the run
             logger.exception("Run %s failed", run_id)
@@ -165,6 +168,32 @@ async def _execute(run_id: str) -> None:
             await _deliver_to_origin(session, run, workflow)
 
 
+def _build_output(final_state: dict, blocked_node: str | None) -> dict:
+    """Choose the run's deliverable.
+
+    Normal finish -> the last node's output (e.g. an Editor's APPROVED text).
+    If a feedback loop exhausted its visit cap (``blocked_node`` set), the last
+    node is the reviewer's critique — so instead return the latest *draft* from
+    the node the loop wanted to revisit, flagged as ``max_revisions``.
+    """
+    transcript = final_state.get("transcript", []) or []
+    last_output = final_state.get("last_output", "")
+    if blocked_node:
+        drafts = [t for t in transcript if t.get("node_id") == blocked_node]
+        if drafts:
+            return {
+                "text": drafts[-1]["content"],
+                "last_node": blocked_node,
+                "outcome": "max_revisions",
+                "note": "Max revisions reached — returning the latest draft (not formally approved).",
+            }
+    return {
+        "text": last_output,
+        "last_node": final_state.get("last_node", ""),
+        "outcome": "completed",
+    }
+
+
 async def _deliver_to_origin(session, run: WorkflowRun, workflow: Workflow) -> None:
     """If the run was triggered from a channel, post the result back to it."""
     origin = (run.input or {}).get("origin")
@@ -173,7 +202,10 @@ async def _deliver_to_origin(session, run: WorkflowRun, workflow: Workflow) -> N
     from app.channels.outbound import send_to_channel  # local import avoids cycle
 
     if run.status == "completed":
-        text = (run.output or {}).get("text") or "(the workflow produced no output)"
+        output = run.output or {}
+        text = output.get("text") or "(the workflow produced no output)"
+        if output.get("outcome") == "max_revisions" and output.get("note"):
+            text = f"⚠️ {output['note']}\n\n{text}"
     else:
         text = f"⚠️ The workflow {run.status}." + (f"\n{run.error}" if run.error else "")
 

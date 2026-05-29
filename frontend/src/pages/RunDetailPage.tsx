@@ -57,7 +57,17 @@ export default function RunDetailPage() {
         <div style={{ marginTop: 6 }}>{(r.input as any)?.text || "—"}</div>
         {(r.output as any)?.text && (
           <>
-            <div className="stat-label" style={{ marginTop: 14 }}>Final output</div>
+            <div className="stat-label" style={{ marginTop: 14, display: "flex", gap: 8, alignItems: "center" }}>
+              Final output
+              {(r.output as any).outcome === "max_revisions" ? (
+                <span className="badge amber">max revisions — latest draft</span>
+              ) : (r.output as any).outcome === "completed" ? (
+                <span className="badge green">completed</span>
+              ) : null}
+            </div>
+            {(r.output as any).note && (
+              <div className="help" style={{ color: "var(--amber)", marginTop: 6 }}>{(r.output as any).note}</div>
+            )}
             <div style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>{(r.output as any).text}</div>
           </>
         )}

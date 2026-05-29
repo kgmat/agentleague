@@ -133,6 +133,7 @@ async def _run_agent_turn(
         agent.get("provider", "ollama"),
         agent.get("model", settings.DEFAULT_MODEL),
         float(agent.get("temperature", 0.7)),
+        thinking=agent.get("thinking"),
     )
     if tools:
         model = model.bind_tools(tools)
@@ -325,21 +326,27 @@ def _make_router(
         key=lambda e: 0 if e.get("condition", {}).get("when", "always") != "always" else 1,
     )
 
-    async def _emit_route(to_node: str, when: str, value, reason: str | None = None) -> None:
+    async def _emit_route(
+        to_node: str, when: str, value, reason: str | None = None,
+        blocked_loop: str | None = None,
+    ) -> None:
         to_name = "END" if to_node == END else name_of(to_node)
-        await ctx.emit(
-            "route",
-            agent_name=name_of(node_id),
-            data={
-                "from_node": node_id,
-                "from_name": name_of(node_id),
-                "to_node": to_node,
-                "to_name": to_name,
-                "when": when,
-                "value": value,
-                "reason": reason,
-            },
-        )
+        data = {
+            "from_node": node_id,
+            "from_name": name_of(node_id),
+            "to_node": to_node,
+            "to_name": to_name,
+            "when": when,
+            "value": value,
+            "reason": reason,
+        }
+        # A loop-back edge was wanted but skipped because the target hit its
+        # visit cap — record which draft node so the run can return its best draft.
+        if blocked_loop:
+            data["blocked_loop_target"] = blocked_loop
+            data["blocked_loop_name"] = name_of(blocked_loop)
+            data["reason"] = data.get("reason") or "max_visits"
+        await ctx.emit("route", agent_name=name_of(node_id), data=data)
 
     async def router(state: GraphState) -> str:
         if state.get("steps", 0) >= settings.MAX_WORKFLOW_STEPS:
@@ -347,14 +354,17 @@ def _make_router(
             return END
         last = (state.get("last_output") or "").lower()
         visits = state.get("visits") or {}
+        blocked_loop: str | None = None
         for edge in ordered:
             target = edge["target"]
             cond = edge.get("condition", {}) or {}
             when = cond.get("when", "always")
             value = (cond.get("value") or "").lower()
 
-            # Loop guard: don't re-enter an agent node past its visit cap.
+            # Loop guard: don't re-enter an agent node past its visit cap. Remember
+            # it so we can surface "max revisions reached" and return its draft.
             if target in agent_node_ids and visits.get(target, 0) >= max_visits.get(target, 3):
+                blocked_loop = target
                 continue
 
             matched = (
@@ -365,9 +375,12 @@ def _make_router(
             )
             if matched:
                 resolved = END if target in end_ids else target
-                await _emit_route(resolved, when, cond.get("value"))
+                await _emit_route(
+                    resolved, when, cond.get("value"),
+                    blocked_loop=blocked_loop if resolved == END else None,
+                )
                 return resolved
-        await _emit_route(END, "always", None, reason="no_match")
+        await _emit_route(END, "always", None, reason="no_match", blocked_loop=blocked_loop)
         return END
 
     return router

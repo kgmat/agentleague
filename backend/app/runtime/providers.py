@@ -125,8 +125,13 @@ def build_chat_model(
     provider: str,
     model: str,
     temperature: float = 0.7,
+    thinking: bool | None = None,
 ) -> BaseChatModel:
-    """Instantiate a chat model for the given provider/model."""
+    """Instantiate a chat model for the given provider/model.
+
+    ``thinking`` toggles Qwen/vLLM reasoning per call; ``None`` falls back to the
+    global ``ENABLE_THINKING`` default. Only applied to OpenAI-compatible gateways.
+    """
     provider = (provider or settings.DEFAULT_PROVIDER).lower()
 
     if provider == "ollama":
@@ -158,8 +163,9 @@ def build_chat_model(
             kwargs["base_url"] = settings.OPENAI_BASE_URL
             # Toggle Qwen/vLLM reasoning ("thinking") per request. Off by default
             # keeps responses short/fast and avoids reasoning-driven 524 timeouts.
+            enable_thinking = settings.ENABLE_THINKING if thinking is None else bool(thinking)
             kwargs["extra_body"] = {
-                "chat_template_kwargs": {"enable_thinking": settings.ENABLE_THINKING}
+                "chat_template_kwargs": {"enable_thinking": enable_thinking}
             }
         return ChatOpenAI(**kwargs)
 

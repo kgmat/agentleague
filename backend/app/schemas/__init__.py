@@ -39,6 +39,7 @@ class AgentBase(BaseModel):
     provider: str = Field(default_factory=lambda: settings.DEFAULT_PROVIDER)
     model: str = Field(default_factory=lambda: settings.DEFAULT_MODEL)
     temperature: float = 0.7
+    thinking: bool = False  # Qwen/vLLM reasoning mode (per agent)
     tools: list[str] = Field(default_factory=list)
     channels: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
@@ -59,6 +60,7 @@ class AgentUpdate(BaseModel):
     provider: str | None = None
     model: str | None = None
     temperature: float | None = None
+    thinking: bool | None = None
     tools: list[str] | None = None
     channels: list[str] | None = None
     skills: list[str] | None = None

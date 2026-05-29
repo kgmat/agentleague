@@ -12,6 +12,7 @@ const EMPTY: AgentInput = {
   provider: "ollama",
   model: "qwen2.5",
   temperature: 0.7,
+  thinking: false,
   tools: [],
   channels: [],
   skills: [],
@@ -145,6 +146,19 @@ export default function AgentForm({
               onChange={(e) => set({ temperature: parseFloat(e.target.value) })}
             />
           </div>
+        </div>
+
+        <div className="field">
+          <label>Thinking</label>
+          <span className="help">
+            <input
+              type="checkbox"
+              checked={f.thinking}
+              onChange={(e) => set({ thinking: e.target.checked })}
+            />{" "}
+            Enable thinking — deeper reasoning but much slower. Off = fast, short
+            replies (recommended for most agents).
+          </span>
         </div>
 
         <div className="field">

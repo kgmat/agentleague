@@ -108,8 +108,8 @@ RESEARCH_WRITE = TemplateSpec(
     nodes=[
         NodeSpec(id="start", kind="start", label="Start", x=0, y=120),
         NodeSpec(id="n_researcher", kind="agent", ref="researcher", label="Researcher", x=200, y=120),
-        NodeSpec(id="n_writer", kind="agent", ref="writer", label="Writer", x=440, y=120, max_visits=3),
-        NodeSpec(id="n_editor", kind="agent", ref="editor", label="Editor", x=680, y=120, max_visits=3),
+        NodeSpec(id="n_writer", kind="agent", ref="writer", label="Writer", x=440, y=120, max_visits=5),
+        NodeSpec(id="n_editor", kind="agent", ref="editor", label="Editor", x=680, y=120, max_visits=5),
         NodeSpec(id="end", kind="end", label="End", x=920, y=120),
     ],
     edges=[

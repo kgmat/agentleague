@@ -50,6 +50,8 @@ class Agent(Base):
     provider: Mapped[str] = mapped_column(String(40), default=lambda: settings.DEFAULT_PROVIDER)
     model: Mapped[str] = mapped_column(String(120), default=lambda: settings.DEFAULT_MODEL)
     temperature: Mapped[float] = mapped_column(Float, default=0.7)
+    # Qwen/vLLM reasoning ("thinking") mode for this agent. Off by default.
+    thinking: Mapped[bool] = mapped_column(default=False, nullable=True)
 
     # Capability / behaviour configuration (all the "configurable dimensions")
     tools: Mapped[list] = mapped_column(JSON, default=list)        # tool names

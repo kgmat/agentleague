@@ -50,6 +50,7 @@ export default function AgentsPage() {
                 {a.tools.map((t) => <span className="tag" key={t}>🔧 {t}</span>)}
                 {a.channels.map((c) => <span className="tag" key={c}>💬 {c}</span>)}
                 {a.memory.enabled && <span className="tag">🧠 mem {a.memory.max_messages}</span>}
+                {a.thinking && <span className="tag">💭 thinking</span>}
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                 <button className="btn sm" onClick={() => setEditing(a)}>Edit</button>

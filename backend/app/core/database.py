@@ -42,12 +42,34 @@ SessionLocal = async_sessionmaker(
 
 
 async def init_db() -> None:
-    """Create all tables. Idempotent; safe to call on every startup."""
+    """Create all tables. Idempotent; safe to call on every startup.
+
+    Also performs tiny additive column migrations for pre-existing databases
+    (we use create_all rather than Alembic for zero-config local runs, and
+    create_all does not add new columns to existing tables).
+    """
     # Import models so they register on ``Base.metadata`` before create_all.
     from app import models  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_add_missing_columns)
+
+
+def _add_missing_columns(sync_conn) -> None:
+    """Best-effort additive migration for columns added after a DB was created."""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(sync_conn)
+    # (table, column, DDL type). Keep nullable so adding to populated tables works.
+    additions = [("agents", "thinking", "BOOLEAN")]
+    for table, column, ddl_type in additions:
+        try:
+            existing = {c["name"] for c in inspector.get_columns(table)}
+        except Exception:
+            continue  # table doesn't exist yet (fresh create handled above)
+        if column not in existing:
+            sync_conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

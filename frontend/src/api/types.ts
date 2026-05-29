@@ -12,6 +12,7 @@ export interface Agent {
   provider: string;
   model: string;
   temperature: number;
+  thinking: boolean;
   tools: string[];
   channels: string[];
   skills: string[];
