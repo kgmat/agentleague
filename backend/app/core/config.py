@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     OPENAI_TIMEOUT: int = 180  # reasoning models can be slow
     ANTHROPIC_API_KEY: str | None = None
 
+    # Qwen/vLLM "thinking" (reasoning) mode. Default OFF for speed and to avoid
+    # huge reasoning generations (which cause latency + Cloudflare 524s). Only
+    # applied to custom OpenAI-compatible gateways, never to real OpenAI.
+    ENABLE_THINKING: bool = False
+
     # --- Runtime guardrails ---
     MAX_WORKFLOW_STEPS: int = 40  # hard ceiling on node visits per run
     LLM_TIMEOUT_SECONDS: int = 120

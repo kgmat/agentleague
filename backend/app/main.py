@@ -34,12 +34,20 @@ async def _load_runtime_settings() -> None:
         await settings_service.load_into_runtime(session)
 
 
+async def _fail_orphaned_runs() -> None:
+    """Clean up runs interrupted by a previous process exit."""
+    from app.services import run_service
+
+    await run_service.fail_orphaned_runs()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging()
     logger.info("Starting %s v%s (env=%s)", settings.APP_NAME, __version__, settings.ENV)
     await init_db()
     await _load_runtime_settings()
+    await _fail_orphaned_runs()
     await start_telegram()
     await start_slack()
     try:

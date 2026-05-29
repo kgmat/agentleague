@@ -53,3 +53,11 @@ async def events_for_run(session: AsyncSession, run_id: str) -> list[LogEvent]:
         select(LogEvent).where(LogEvent.run_id == run_id).order_by(LogEvent.created_at)
     )
     return list(result.scalars().all())
+
+
+async def recent_events(session: AsyncSession, limit: int = 150) -> list[LogEvent]:
+    """Most recent events across all runs, oldest-first (for the global monitor)."""
+    result = await session.execute(
+        select(LogEvent).order_by(LogEvent.created_at.desc()).limit(limit)
+    )
+    return list(reversed(result.scalars().all()))

@@ -52,14 +52,23 @@ async def _resolve_binding(session, channel: str) -> tuple[str | None, str | Non
     return fallback() if fallback else (None, None)
 
 
-async def handle_inbound(channel: str, sender_id: str, text: str) -> str:
-    """Process one inbound message and return the reply text."""
+async def handle_inbound(
+    channel: str, sender_id: str, text: str, thread: str | None = None
+) -> str:
+    """Process one inbound message and return the reply text to post immediately.
+
+    For a single agent the reply is the answer. For a workflow the reply is an
+    acknowledgement — the (possibly slow) workflow runs in the background and its
+    final result is delivered back to the channel on completion.
+    """
     identity = f"{channel}:{sender_id}"
     async with SessionLocal() as session:
         workflow_id, agent_id = await _resolve_binding(session, channel)
 
         if workflow_id:
-            return await _run_via_workflow(session, channel, identity, workflow_id, text)
+            return await _run_via_workflow(
+                session, channel, sender_id, identity, workflow_id, text, thread
+            )
         if agent_id:
             return await _run_via_agent(session, channel, identity, agent_id, text)
 
@@ -70,13 +79,23 @@ async def handle_inbound(channel: str, sender_id: str, text: str) -> str:
 
 
 async def _run_via_workflow(
-    session, channel: str, identity: str, workflow_id: str, text: str
+    session, channel: str, sender_id: str, identity: str, workflow_id: str, text: str,
+    thread: str | None,
 ) -> str:
     workflow = await session.get(Workflow, workflow_id)
     if workflow is None:
         return "⚠️ The connected workflow no longer exists."
 
-    run = await run_service.create_run(session, workflow_id, text, trigger=channel)
+    # Record where to deliver the result once the (possibly slow) run finishes.
+    origin = {
+        "channel": channel,
+        "conversation": sender_id,
+        "thread": thread,
+        "identity": identity,
+    }
+    run = await run_service.create_run(
+        session, workflow_id, text, trigger=channel, origin=origin
+    )
     # Record the human turn against the run so it shows in the conversation.
     await message_service.add_message(
         session,
@@ -89,25 +108,10 @@ async def _run_via_workflow(
     )
     await session.commit()
 
-    # Execute the full workflow (its own session) and wait for completion.
-    await run_service._execute(run.id)
-
-    async with SessionLocal() as read_session:
-        finished = await run_service.get_run(read_session, run.id)
-        reply = (finished.output or {}).get("text") if finished else None
-        reply = reply or "(the workflow produced no output)"
-        # Persist the outbound channel turn.
-        await message_service.add_message(
-            read_session,
-            run_id=run.id,
-            role="assistant",
-            sender=workflow.name,
-            recipient=identity,
-            channel=channel,
-            content=reply,
-        )
-        await read_session.commit()
-    return reply
+    # Kick off the workflow in the background; do NOT block the channel handler.
+    # The final output is delivered back to this channel on completion.
+    run_service.schedule_run(run.id)
+    return f"🛠️ Running *{workflow.name}*… I'll post the result here when it's ready."
 
 
 async def _run_via_agent(

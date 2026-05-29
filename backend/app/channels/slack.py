@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 
 from app.channels.base import Channel
+from app.channels.outbound import register_sender, unregister_sender
 from app.channels.router import handle_inbound
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -53,7 +54,7 @@ class SlackChannel(Channel):
             thread_ts = event.get("thread_ts") or event.get("ts")
             logger.info("Slack inbound from %s: %s", channel_id, text[:80])
             try:
-                reply = await handle_inbound("slack", channel_id, text)
+                reply = await handle_inbound("slack", channel_id, text, thread=thread_ts)
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Slack handler failed")
                 reply = f"⚠️ Sorry, something went wrong: {exc}"
@@ -74,6 +75,15 @@ class SlackChannel(Channel):
         self._handler = handler
         self._running = True
 
+        # Allow the run executor to deliver async workflow results back here.
+        # `thread` is the Slack thread_ts so replies land in the same thread.
+        async def _send(conversation: str, text: str, thread: str | None = None) -> None:
+            await app.client.chat_postMessage(
+                channel=conversation, text=text[:3900], thread_ts=thread
+            )
+
+        register_sender("slack", _send)
+
         try:
             auth = await app.client.auth_test()
             self.bot_user = auth.get("user")
@@ -82,6 +92,7 @@ class SlackChannel(Channel):
             logger.info("Slack bot connected via Socket Mode.")
 
     async def stop(self) -> None:
+        unregister_sender("slack")
         if not self._handler:
             return
         try:

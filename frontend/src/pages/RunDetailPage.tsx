@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { getRun } from "../api/client";
-import { fmtCost, fmtDate, statusBadge } from "../lib/format";
+import { fmtCost, fmtDate, fmtTime, statusBadge } from "../lib/format";
+import { renderEventLine } from "../lib/events";
+import { useMonitor } from "../hooks/useMonitor";
 
 export default function RunDetailPage() {
   const { id } = useParams();
@@ -16,6 +18,10 @@ export default function RunDetailPage() {
       return s === "running" || s === "pending" ? 1500 : false;
     },
   });
+
+  // Live activity trace for this run (replays persisted history on connect,
+  // then streams live — so you always see the full ordered sequence).
+  const { events } = useMonitor(id);
 
   if (!run.data) return <div className="empty">Loading run…</div>;
   const r = run.data;
@@ -54,6 +60,20 @@ export default function RunDetailPage() {
             <div className="stat-label" style={{ marginTop: 14 }}>Final output</div>
             <div style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>{(r.output as any).text}</div>
           </>
+        )}
+      </div>
+
+      <h3>Activity {r.status === "running" && <span className="badge amber">live</span>}</h3>
+      <div className="log" style={{ height: 260, marginBottom: 20 }}>
+        {events.length === 0 ? (
+          <div className="help">No activity recorded.</div>
+        ) : (
+          events.map((e, i) => (
+            <div className={`log-line evt-${e.type}`} key={i}>
+              <span className="log-ts">{fmtTime(e.ts)} </span>
+              {renderEventLine(e)}
+            </div>
+          ))
         )}
       </div>
 

@@ -16,7 +16,7 @@ os.environ["REDIS_URL"] = ""
 os.environ["ENABLE_TELEGRAM"] = "false"
 
 import pytest  # noqa: E402
-from langchain_core.messages import AIMessage  # noqa: E402
+from langchain_core.messages import AIMessage, AIMessageChunk  # noqa: E402
 
 from app.core.database import Base, SessionLocal, engine, init_db  # noqa: E402
 
@@ -36,12 +36,21 @@ class FakeChatModel:
     def bind_tools(self, tools):  # tools ignored in tests
         return self
 
-    async def ainvoke(self, messages):
+    def _reply_text(self, messages) -> str:
         system = messages[0].content.lower() if messages else ""
         human = messages[-1].content if messages else ""
-        text = self._responder(system, human, self._counter)
+        return self._responder(system, human, self._counter)
+
+    async def ainvoke(self, messages):
         return AIMessage(
-            content=text,
+            content=self._reply_text(messages),
+            usage_metadata={"input_tokens": 11, "output_tokens": 7, "total_tokens": 18},
+        )
+
+    async def astream(self, messages, **kwargs):
+        # The engine streams; yield a single aggregated chunk for determinism.
+        yield AIMessageChunk(
+            content=self._reply_text(messages),
             usage_metadata={"input_tokens": 11, "output_tokens": 7, "total_tokens": 18},
         )
 

@@ -154,7 +154,16 @@ async def _run_agent_turn(
     total = Usage()
     final_text = ""
     for _ in range(max_steps):
-        response: AIMessage = await model.ainvoke(messages)
+        # Stream the response so the HTTP connection keeps producing bytes —
+        # this prevents Cloudflare/proxy read-timeouts (HTTP 524) on long
+        # reasoning generations. LangChain aggregates chunks (content, tool
+        # calls, usage) when AIMessageChunks are added together.
+        response = None
+        async for chunk in model.astream(messages):
+            response = chunk if response is None else response + chunk
+        if response is None:
+            break
+
         u = extract_usage(response)
         total.prompt_tokens += u.prompt_tokens
         total.completion_tokens += u.completion_tokens
@@ -297,12 +306,18 @@ def _make_router(
     agent_node_ids: set[str],
     end_ids: set[str],
     max_visits: dict[str, int],
+    ctx: RunContext,
+    name_of,
 ):
     """Build the conditional-edge router for one source node.
 
     Specific conditions are evaluated before unconditional (``always``) edges so
     ``always`` acts as a fallback. Backward edges (loops) are skipped once their
     target's visit cap is hit, which makes feedback loops terminate.
+
+    The router is async so it can emit a ``route`` monitoring event describing
+    the edge taken (e.g. "Editor → Writer (REVISE)"), which the UI renders as an
+    arrow in the live trace.
     """
     outgoing = [e for e in edges if e["source"] == node_id]
     ordered = sorted(
@@ -310,8 +325,25 @@ def _make_router(
         key=lambda e: 0 if e.get("condition", {}).get("when", "always") != "always" else 1,
     )
 
-    def router(state: GraphState) -> str:
+    async def _emit_route(to_node: str, when: str, value, reason: str | None = None) -> None:
+        to_name = "END" if to_node == END else name_of(to_node)
+        await ctx.emit(
+            "route",
+            agent_name=name_of(node_id),
+            data={
+                "from_node": node_id,
+                "from_name": name_of(node_id),
+                "to_node": to_node,
+                "to_name": to_name,
+                "when": when,
+                "value": value,
+                "reason": reason,
+            },
+        )
+
+    async def router(state: GraphState) -> str:
         if state.get("steps", 0) >= settings.MAX_WORKFLOW_STEPS:
+            await _emit_route(END, "always", None, reason="max_steps")
             return END
         last = (state.get("last_output") or "").lower()
         visits = state.get("visits") or {}
@@ -332,7 +364,10 @@ def _make_router(
                 or (when == "llm_route" and value and value in last)
             )
             if matched:
-                return END if target in end_ids else target
+                resolved = END if target in end_ids else target
+                await _emit_route(resolved, when, cond.get("value"))
+                return resolved
+        await _emit_route(END, "always", None, reason="no_match")
         return END
 
     return router
@@ -355,6 +390,16 @@ def compile_workflow(
         for nid, n in agent_nodes.items()
     }
 
+    # Readable name for each node (agent name), for arrow-style route events.
+    def name_of(nid: str) -> str:
+        node = agent_nodes.get(nid)
+        if node:
+            agent = agents_by_id.get(node.get("data", {}).get("agent_id"))
+            if agent:
+                return agent["name"]
+            return node.get("data", {}).get("label") or nid
+        return nid
+
     builder = StateGraph(GraphState)
     for nid, node in agent_nodes.items():
         builder.add_node(nid, build_agent_node(node, agents_by_id, ctx))
@@ -365,7 +410,7 @@ def compile_workflow(
 
     # Wire conditional edges out of every agent node.
     for nid in agent_nodes:
-        router = _make_router(nid, edges, agent_node_ids, end_ids, max_visits)
+        router = _make_router(nid, edges, agent_node_ids, end_ids, max_visits, ctx, name_of)
         builder.add_conditional_edges(nid, router)
 
     return builder.compile()

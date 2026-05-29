@@ -150,10 +150,17 @@ def build_chat_model(
             "temperature": temperature,
             "api_key": settings.OPENAI_API_KEY,
             "timeout": settings.OPENAI_TIMEOUT,
+            # Include token usage in the streamed response (stream_options).
+            "stream_usage": True,
         }
         # Custom OpenAI-compatible gateway (vLLM, hosted Qwen, etc.).
         if settings.OPENAI_BASE_URL:
             kwargs["base_url"] = settings.OPENAI_BASE_URL
+            # Toggle Qwen/vLLM reasoning ("thinking") per request. Off by default
+            # keeps responses short/fast and avoids reasoning-driven 524 timeouts.
+            kwargs["extra_body"] = {
+                "chat_template_kwargs": {"enable_thinking": settings.ENABLE_THINKING}
+            }
         return ChatOpenAI(**kwargs)
 
     if provider == "anthropic":

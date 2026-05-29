@@ -26,13 +26,22 @@ logger = get_logger(__name__)
 
 
 async def create_run(
-    session: AsyncSession, workflow_id: str, user_input: str, trigger: str = "manual"
+    session: AsyncSession,
+    workflow_id: str,
+    user_input: str,
+    trigger: str = "manual",
+    origin: dict | None = None,
 ) -> WorkflowRun:
+    # ``origin`` (when triggered from a channel) records where to deliver the
+    # final result: {channel, conversation, thread, identity}.
+    payload: dict = {"text": user_input}
+    if origin:
+        payload["origin"] = origin
     run = WorkflowRun(
         workflow_id=workflow_id,
         status="pending",
         trigger=trigger,
-        input={"text": user_input},
+        input=payload,
     )
     session.add(run)
     await session.flush()
@@ -59,6 +68,26 @@ def schedule_run(run_id: str) -> None:
     asyncio.create_task(_execute(run_id))
 
 
+async def fail_orphaned_runs() -> None:
+    """Mark runs left 'running'/'pending' by a previous process as failed.
+
+    Background run tasks are in-memory, so a restart orphans any in-flight run.
+    Called on startup so the UI never shows a permanently-stuck run.
+    """
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(WorkflowRun).where(WorkflowRun.status.in_(["running", "pending"]))
+        )
+        rows = list(result.scalars().all())
+        for r in rows:
+            r.status = "failed"
+            r.error = "Interrupted by server restart"
+            r.finished_at = datetime.now(timezone.utc)
+        if rows:
+            await session.commit()
+            logger.info("Marked %d orphaned run(s) as failed on startup", len(rows))
+
+
 async def _execute(run_id: str) -> None:
     """Background entrypoint: load everything, run the graph, persist results."""
     async with SessionLocal() as session:
@@ -79,6 +108,9 @@ async def _execute(run_id: str) -> None:
         # Callbacks wire the runtime back into persistence + the run's counters.
         async def on_event(event: Event) -> None:
             await message_service.persist_event(session, event)
+            # Tick the step counter live so the UI doesn't show 0 mid-run.
+            if event.type == "node_start":
+                run.step_count = (run.step_count or 0) + 1
             await session.commit()
 
         async def on_message(**kwargs) -> None:
@@ -130,6 +162,35 @@ async def _execute(run_id: str) -> None:
                     "cost_usd": run.cost_usd,
                 },
             )
+            await _deliver_to_origin(session, run, workflow)
+
+
+async def _deliver_to_origin(session, run: WorkflowRun, workflow: Workflow) -> None:
+    """If the run was triggered from a channel, post the result back to it."""
+    origin = (run.input or {}).get("origin")
+    if not origin:
+        return
+    from app.channels.outbound import send_to_channel  # local import avoids cycle
+
+    if run.status == "completed":
+        text = (run.output or {}).get("text") or "(the workflow produced no output)"
+    else:
+        text = f"⚠️ The workflow {run.status}." + (f"\n{run.error}" if run.error else "")
+
+    sent = await send_to_channel(
+        origin["channel"], origin["conversation"], text, origin.get("thread")
+    )
+    if sent:
+        await message_service.add_message(
+            session,
+            run_id=run.id,
+            role="assistant",
+            sender=workflow.name,
+            recipient=origin.get("identity") or origin["conversation"],
+            channel=origin["channel"],
+            content=text,
+        )
+        await session.commit()
 
 
 async def _all_agents(session: AsyncSession) -> list[Agent]:

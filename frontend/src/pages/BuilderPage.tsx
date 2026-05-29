@@ -18,6 +18,7 @@ import AgentNode from "../components/AgentNode";
 import { useMonitor } from "../hooks/useMonitor";
 import { getWorkflow, listAgents, runWorkflow, updateWorkflow } from "../api/client";
 import type { Agent, EdgeCondition, Workflow } from "../api/types";
+import { renderEventLine } from "../lib/events";
 
 const nodeTypes = { agentNode: AgentNode };
 
@@ -241,8 +242,7 @@ export default function BuilderPage() {
                   {events.length === 0 && <div className="help">Waiting for events…</div>}
                   {events.map((e, i) => (
                     <div className={`log-line evt-${e.type}`} key={i}>
-                      <span className="log-ts">{e.agent_name ? `[${e.agent_name}] ` : ""}</span>
-                      {renderEvent(e)}
+                      {renderEventLine(e)}
                     </div>
                   ))}
                 </div>
@@ -352,15 +352,3 @@ function EdgeEditor({ cond, onChange }: { cond: EdgeCondition; onChange: (c: Edg
   );
 }
 
-function renderEvent(e: { type: string; data: Record<string, any> }) {
-  switch (e.type) {
-    case "node_start": return `▶ entering ${e.data.node_id} (visit ${e.data.visit})`;
-    case "node_end": return `✓ done ${e.data.node_id}`;
-    case "tool_call": return `🔧 ${e.data.tool}(${JSON.stringify(e.data.args)})`;
-    case "tool_result": return `   ↳ ${String(e.data.result).slice(0, 160)}`;
-    case "agent_message": return `💬 ${String(e.data.content).slice(0, 200)}  ·  ${e.data.prompt_tokens + e.data.completion_tokens} tok`;
-    case "run_status": return `● run ${e.data.status}${e.data.total_tokens ? ` · ${e.data.total_tokens} tok · $${e.data.cost_usd}` : ""}`;
-    case "error": return `✖ ${e.data.message}`;
-    default: return JSON.stringify(e.data);
-  }
-}

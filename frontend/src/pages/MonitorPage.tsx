@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { listRuns } from "../api/client";
 import { useMonitor } from "../hooks/useMonitor";
 import { fmtCost, fmtDate, fmtTime, statusBadge } from "../lib/format";
+import { renderEventLine } from "../lib/events";
 
 export default function MonitorPage() {
   const nav = useNavigate();
@@ -33,8 +34,7 @@ export default function MonitorPage() {
             {events.map((e, i) => (
               <div className={`log-line evt-${e.type}`} key={i}>
                 <span className="log-ts">{fmtTime(e.ts)} </span>
-                {e.agent_name ? `[${e.agent_name}] ` : ""}
-                <strong>{e.type}</strong> {summarize(e)}
+                {renderEventLine(e)}
               </div>
             ))}
           </div>
@@ -69,14 +69,3 @@ export default function MonitorPage() {
   );
 }
 
-function summarize(e: { type: string; data: Record<string, any> }) {
-  switch (e.type) {
-    case "agent_message": return `· ${String(e.data.content ?? "").slice(0, 120)}`;
-    case "tool_call": return `· ${e.data.tool}`;
-    case "tool_result": return `· ${String(e.data.result ?? "").slice(0, 80)}`;
-    case "node_start": return `· ${e.data.node_id}`;
-    case "run_status": return `· ${e.data.status}`;
-    case "error": return `· ${e.data.message}`;
-    default: return "";
-  }
-}

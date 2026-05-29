@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 
 from app.channels.base import Channel
+from app.channels.outbound import register_sender, unregister_sender
 from app.channels.router import handle_inbound
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -87,6 +88,12 @@ class TelegramChannel(Channel):
         self._app = application
         self._running = True
 
+        # Allow the run executor to deliver async workflow results back here.
+        async def _send(conversation: str, text: str, _thread: str | None = None) -> None:
+            await application.bot.send_message(chat_id=conversation, text=text[:4000])
+
+        register_sender("telegram", _send)
+
         # Surface the connected bot's handle so it's easy to find and message.
         try:
             me = await application.bot.get_me()
@@ -96,6 +103,7 @@ class TelegramChannel(Channel):
             logger.info("Telegram bot is polling for messages.")
 
     async def stop(self) -> None:
+        unregister_sender("telegram")
         if not self._app:
             return
         try:
