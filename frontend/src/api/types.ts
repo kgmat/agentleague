@@ -102,6 +102,17 @@ export interface RunDetail extends Run { messages: Message[]; }
 
 export interface Template { key: string; name: string; description: string; agent_count: number; }
 export interface ToolInfo { name: string; description: string; }
+export interface Archetype {
+  key: string;
+  name: string;
+  role: string;
+  group: string;
+  description: string;
+  system_prompt: string;
+  tools: string[];
+  channels: string[];
+  thinking: boolean;
+}
 export interface ProviderInfo { name: string; models: string[]; available: boolean; }
 export interface ChannelBinding {
   id: string;

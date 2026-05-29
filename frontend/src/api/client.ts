@@ -2,6 +2,7 @@ import axios from "axios";
 import type {
   Agent,
   AgentInput,
+  Archetype,
   ChannelBinding,
   ProviderInfo,
   Run,
@@ -48,6 +49,7 @@ export const instantiateTemplate = (key: string) =>
 // --- Meta ---
 export const listTools = () => api.get<ToolInfo[]>("/tools").then((r) => r.data);
 export const listProviders = () => api.get<ProviderInfo[]>("/providers").then((r) => r.data);
+export const listArchetypes = () => api.get<Archetype[]>("/agent-archetypes").then((r) => r.data);
 export const getConfig = () =>
   api
     .get<{ default_provider: string; default_model: string; telegram_enabled: boolean; max_workflow_steps: number }>(

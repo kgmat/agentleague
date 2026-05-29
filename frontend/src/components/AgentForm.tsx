@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { getConfig, listModels, listProviders, listTools } from "../api/client";
-import type { Agent, AgentInput } from "../api/types";
+import { getConfig, listArchetypes, listModels, listProviders, listTools } from "../api/client";
+import type { Agent, AgentInput, Archetype } from "../api/types";
 import Modal from "./Modal";
 
 const EMPTY: AgentInput = {
@@ -39,6 +39,21 @@ export default function AgentForm({
 
   const [f, setF] = useState<AgentInput>(initial ? { ...EMPTY, ...initial } : EMPTY);
   const set = (patch: Partial<AgentInput>) => setF((p) => ({ ...p, ...patch }));
+
+  // Archetype gallery (create mode only) — prefills the form, stays editable.
+  const archetypes = useQuery({ queryKey: ["archetypes"], queryFn: listArchetypes, enabled: !initial });
+  const [archKey, setArchKey] = useState<string | null>(null);
+  const applyArchetype = (a: Archetype) => {
+    setArchKey(a.key);
+    set({
+      name: a.name,
+      role: a.role,
+      system_prompt: a.system_prompt,
+      tools: a.tools,
+      channels: a.channels,
+      thinking: a.thinking,
+    });
+  };
 
   // When creating a new agent, default provider/model to the platform's config.
   const appliedDefaults = useRef(false);
@@ -83,6 +98,29 @@ export default function AgentForm({
       }
     >
       <div className="form-grid">
+        {!initial && archetypes.data && archetypes.data.length > 0 && (
+          <div className="field">
+            <label>Start from an archetype</label>
+            <div className="arch-grid">
+              {archetypes.data.map((a) => (
+                <button
+                  type="button"
+                  key={a.key}
+                  className={"arch-card" + (archKey === a.key ? " on" : "")}
+                  title={a.system_prompt}
+                  onClick={() => applyArchetype(a)}
+                >
+                  <div className="arch-name">{a.name}</div>
+                  <div className="arch-desc">{a.description}</div>
+                </button>
+              ))}
+            </div>
+            <span className="help">
+              Click to prefill (everything stays editable) — or just fill the form for a blank agent.
+            </span>
+          </div>
+        )}
+
         <div className="row">
           <div className="field">
             <label>Name</label>

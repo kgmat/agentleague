@@ -280,6 +280,18 @@ tr.click:hover td { background: var(--bg-3); }
 .tl-step .tl-sum { color: var(--text-dim); margin-top: 7px; white-space: pre-wrap; line-height: 1.55; font-size: 13px; }
 .tl-arrow { color: var(--text-faint-solid); font-size: 12px; margin: 7px 0 7px 16px; }
 
+/* ---------- Agent archetype gallery ---------- */
+.arch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.arch-card {
+  text-align: left; background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; cursor: pointer; color: var(--text);
+  transition: border-color 0.15s ease, transform 0.12s ease, background 0.15s ease;
+}
+.arch-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.arch-card.on { border-color: var(--accent); background: var(--accent-soft); }
+.arch-card .arch-name { font-weight: 650; font-size: 13px; }
+.arch-card .arch-desc { color: var(--text-dim); font-size: 11.5px; margin-top: 3px; line-height: 1.4; }
+
 /* ---------- Theme toggle ---------- */
 .theme-toggle { display: flex; gap: 2px; background: var(--bg-3); border: 1px solid var(--border); border-radius: 10px; padding: 3px; margin: 6px 4px 4px; }
 .tt-btn { flex: 1; display: grid; place-items: center; padding: 7px; border-radius: 7px; border: none;

@@ -6,6 +6,7 @@ from fastapi import APIRouter
 from app.core.config import settings
 from app.runtime.providers import list_providers
 from app.runtime.tools import list_tools
+from app.templates.archetypes import list_archetypes
 
 router = APIRouter(prefix="/api", tags=["meta"])
 
@@ -23,6 +24,12 @@ async def get_tools():
 @router.get("/providers")
 async def get_providers():
     return list_providers()
+
+
+@router.get("/agent-archetypes")
+async def get_agent_archetypes():
+    """Curated starting points for the New-agent flow (prefill, fully editable)."""
+    return list_archetypes()
 
 
 @router.get("/config")
