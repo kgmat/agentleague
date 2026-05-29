@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.config import settings
 
@@ -47,6 +47,12 @@ class AgentBase(BaseModel):
     schedule: ScheduleConfig = Field(default_factory=ScheduleConfig)
     interaction_rules: dict[str, Any] = Field(default_factory=dict)
     guardrails: Guardrails = Field(default_factory=Guardrails)
+
+    @field_validator("thinking", mode="before")
+    @classmethod
+    def _thinking_not_null(cls, v):
+        # Legacy rows may have NULL for a newly-added column; treat as False.
+        return False if v is None else v
 
 
 class AgentCreate(AgentBase):

@@ -57,19 +57,28 @@ async def init_db() -> None:
 
 
 def _add_missing_columns(sync_conn) -> None:
-    """Best-effort additive migration for columns added after a DB was created."""
+    """Best-effort additive migration for columns added after a DB was created.
+
+    New columns are added WITH a default (SQLite backfills existing rows), and we
+    additionally backfill any NULLs left by an earlier column-add that omitted the
+    default — so non-nullable fields never serialise as None.
+    """
     from sqlalchemy import inspect, text
 
     inspector = inspect(sync_conn)
-    # (table, column, DDL type). Keep nullable so adding to populated tables works.
-    additions = [("agents", "thinking", "BOOLEAN")]
-    for table, column, ddl_type in additions:
+    # (table, column, DDL type incl. default, backfill value for stray NULLs)
+    additions = [("agents", "thinking", "BOOLEAN DEFAULT 0", 0)]
+    for table, column, ddl_type, backfill in additions:
         try:
             existing = {c["name"] for c in inspector.get_columns(table)}
         except Exception:
             continue  # table doesn't exist yet (fresh create handled above)
         if column not in existing:
             sync_conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))
+        else:
+            sync_conn.execute(
+                text(f"UPDATE {table} SET {column} = {backfill} WHERE {column} IS NULL")
+            )
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
