@@ -1,0 +1,97 @@
+# AgentLeague — single-command local stack:  docker compose up
+#
+name: agentleague
+#
+# Services:
+#   db          — Postgres (persistence layer)
+#   redis       — pub/sub event bus for live monitoring across processes
+#   ollama      — local LLM runtime
+#   ollama-init — one-shot: pulls the default model so the demo works out of the box
+#   backend     — FastAPI + LangGraph runtime + Telegram channel
+#   frontend    — React SPA served by nginx, proxying /api to the backend
+#
+# Override the model with: OLLAMA_MODEL=llama3.2 docker compose up
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: orch
+      POSTGRES_PASSWORD: orch
+      POSTGRES_DB: orchestrator
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orch -d orchestrator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama:latest
+    ports: ["11434:11434"]
+    volumes: ["ollama:/root/.ollama"]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama: { condition: service_healthy }
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5}
+    entrypoint: ["/bin/sh", "-c", "ollama pull $${OLLAMA_MODEL}"]
+    restart: "no"
+
+  backend:
+    build: ./backend
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      ollama: { condition: service_healthy }
+    environment:
+      ENV: docker
+      DATABASE_URL: postgresql+asyncpg://orch:orch@db:5432/orchestrator
+      REDIS_URL: redis://redis:6379/0
+      OLLAMA_BASE_URL: http://ollama:11434
+      # LLM provider — defaults to local Ollama. To use a hosted OpenAI-compatible
+      # endpoint instead, set these in a root .env (or your shell) before `up`:
+      #   DEFAULT_PROVIDER=openai DEFAULT_MODEL=qwen3.6_35b \
+      #   OPENAI_API_KEY=sk-... OPENAI_BASE_URL=https://your-gateway/v1
+      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-ollama}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-${OLLAMA_MODEL:-qwen2.5}}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_TIMEOUT: ${OPENAI_TIMEOUT:-180}
+      # Messaging channels are optional — set tokens to enable them.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      ENABLE_TELEGRAM: ${ENABLE_TELEGRAM:-true}
+      TELEGRAM_AGENT_ID: ${TELEGRAM_AGENT_ID:-}
+      TELEGRAM_WORKFLOW_ID: ${TELEGRAM_WORKFLOW_ID:-}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      SLACK_APP_TOKEN: ${SLACK_APP_TOKEN:-}
+      ENABLE_SLACK: ${ENABLE_SLACK:-true}
+      SLACK_AGENT_ID: ${SLACK_AGENT_ID:-}
+      SLACK_WORKFLOW_ID: ${SLACK_WORKFLOW_ID:-}
+    ports: ["8000:8000"]
+
+  frontend:
+    build: ./frontend
+    depends_on: [backend]
+    ports: ["5173:80"]
+
+volumes:
+  pgdata:
+  ollama:
