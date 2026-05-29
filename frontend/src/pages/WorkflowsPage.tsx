@@ -8,11 +8,14 @@ import {
   listWorkflows,
 } from "../api/client";
 import { fmtDate } from "../lib/format";
+import { useConfirm, usePrompt } from "../components/Dialogs";
 import { Plus } from "lucide-react";
 
 export default function WorkflowsPage() {
   const qc = useQueryClient();
   const nav = useNavigate();
+  const confirmDialog = useConfirm();
+  const promptDialog = usePrompt();
   const { data: workflows } = useQuery({ queryKey: ["workflows"], queryFn: listWorkflows });
   const { data: templates } = useQuery({ queryKey: ["templates"], queryFn: listTemplates });
 
@@ -31,9 +34,15 @@ export default function WorkflowsPage() {
   });
   const remove = useMutation({ mutationFn: deleteWorkflow, onSuccess: refresh });
 
-  const newWorkflow = () => {
-    const name = prompt("Workflow name?", "My workflow");
-    if (name) {
+  const newWorkflow = async () => {
+    const name = await promptDialog({
+      title: "New workflow",
+      label: "Workflow name",
+      defaultValue: "My workflow",
+      placeholder: "e.g. Support triage",
+      confirmText: "Create",
+    });
+    if (name && name.trim()) {
       create.mutate({
         name,
         description: "",
@@ -81,7 +90,11 @@ export default function WorkflowsPage() {
                 <span className="meta" style={{ color: "var(--text-faint)" }}>{fmtDate(w.updated_at)}</span>
                 <button
                   className="btn sm danger"
-                  onClick={(e) => { e.stopPropagation(); if (confirm(`Delete ${w.name}?`)) remove.mutate(w.id); }}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (await confirmDialog({ title: "Delete workflow", message: <>Delete <strong>{w.name}</strong>?</>, confirmText: "Delete", danger: true }))
+                      remove.mutate(w.id);
+                  }}
                 >
                   Delete
                 </button>

@@ -3,10 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createAgent, deleteAgent, listAgents, updateAgent } from "../api/client";
 import type { Agent, AgentInput } from "../api/types";
 import AgentForm from "../components/AgentForm";
+import { useConfirm } from "../components/Dialogs";
 import { Plus } from "lucide-react";
 
 export default function AgentsPage() {
   const qc = useQueryClient();
+  const confirmDialog = useConfirm();
   const { data: agents } = useQuery({ queryKey: ["agents"], queryFn: listAgents });
   const [editing, setEditing] = useState<Agent | null>(null);
   const [creating, setCreating] = useState(false);
@@ -57,7 +59,10 @@ export default function AgentsPage() {
                 <button className="btn sm" onClick={() => setEditing(a)}>Edit</button>
                 <button
                   className="btn sm danger"
-                  onClick={() => { if (confirm(`Delete ${a.name}?`)) remove.mutate(a.id); }}
+                  onClick={async () => {
+                    if (await confirmDialog({ title: "Delete agent", message: <>Delete <strong>{a.name}</strong>? This can't be undone.</>, confirmText: "Delete", danger: true }))
+                      remove.mutate(a.id);
+                  }}
                 >
                   Delete
                 </button>

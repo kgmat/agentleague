@@ -19,6 +19,7 @@ import AgentNode from "../components/AgentNode";
 import { useMonitor } from "../hooks/useMonitor";
 import { useTheme } from "../hooks/useTheme";
 import { ArrowLeft, Play, Plus, Save, Trash2 } from "lucide-react";
+import { usePrompt } from "../components/Dialogs";
 import { getWorkflow, listAgents, runWorkflow, updateWorkflow } from "../api/client";
 import type { Agent, EdgeCondition, Workflow } from "../api/types";
 import { renderEventLine } from "../lib/events";
@@ -43,6 +44,7 @@ export default function BuilderPage() {
   const [runId, setRunId] = useState<string | undefined>(undefined);
   const [toast, setToast] = useState<string | null>(null);
   const { resolved: theme } = useTheme();
+  const promptDialog = usePrompt();
 
   const { events } = useMonitor(runId);
 
@@ -176,7 +178,13 @@ export default function BuilderPage() {
   const run = async () => {
     if (!id) return;
     await updateWorkflow(id, { graph: toBackendGraph() as Workflow["graph"] });
-    const input = prompt("Task / message to start the workflow with:", "Write a short article about sea otters.");
+    const input = await promptDialog({
+      title: "Run workflow",
+      label: "Task / message to start the workflow with",
+      defaultValue: "Write a short article about sea otters.",
+      multiline: true,
+      confirmText: "Run",
+    });
     if (input == null) return;
     const r = await runWorkflow(id, input);
     setRunId(r.id);

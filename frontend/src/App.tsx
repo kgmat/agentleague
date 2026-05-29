@@ -31,9 +31,8 @@ export default function App() {
   return (
     <div className="app">
       <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-mark">A</span>
-          Agent<span>League</span>
+        <div className="brand-wrap">
+          <img src="/banner.png" alt="AgentLeague" className="brand-banner" />
         </div>
         {NAV.map((n) => {
           const Icon = n.icon;
