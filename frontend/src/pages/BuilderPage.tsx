@@ -16,6 +16,8 @@ import {
 } from "@xyflow/react";
 import AgentNode from "../components/AgentNode";
 import { useMonitor } from "../hooks/useMonitor";
+import { useTheme } from "../hooks/useTheme";
+import { ArrowLeft, Play, Plus, Save, Trash2 } from "lucide-react";
 import { getWorkflow, listAgents, runWorkflow, updateWorkflow } from "../api/client";
 import type { Agent, EdgeCondition, Workflow } from "../api/types";
 import { renderEventLine } from "../lib/events";
@@ -39,6 +41,7 @@ export default function BuilderPage() {
   const [loaded, setLoaded] = useState(false);
   const [runId, setRunId] = useState<string | undefined>(undefined);
   const [toast, setToast] = useState<string | null>(null);
+  const { resolved: theme } = useTheme();
 
   const { events } = useMonitor(runId);
 
@@ -200,10 +203,10 @@ export default function BuilderPage() {
     <div className="builder">
       <div className="canvas-wrap">
         <div className="builder-toolbar">
-          <button className="btn sm" onClick={() => nav("/workflows")}>← Back</button>
-          <button className="btn sm" onClick={addAgentNode}>+ Agent node</button>
-          <button className="btn sm" onClick={save}>💾 Save</button>
-          <button className="btn primary sm" onClick={run}>▶ Run</button>
+          <button className="btn sm" onClick={() => nav("/workflows")}><ArrowLeft size={14} /> Back</button>
+          <button className="btn sm" onClick={addAgentNode}><Plus size={14} /> Agent node</button>
+          <button className="btn sm" onClick={save}><Save size={14} /> Save</button>
+          <button className="btn primary sm" onClick={run}><Play size={14} /> Run</button>
           <span style={{ alignSelf: "center", fontSize: 12, color: "var(--text-dim)", marginLeft: 6 }}>
             {wfQuery.data?.name}{running ? "  ·  running…" : ""}
           </span>
@@ -219,11 +222,16 @@ export default function BuilderPage() {
           onEdgeClick={(_, e) => { setSelEdge(e.id); setSelNode(null); }}
           onPaneClick={() => { setSelNode(null); setSelEdge(null); }}
           fitView
-          colorMode="dark"
+          colorMode={theme}
         >
-          <Background color="#243049" gap={18} />
+          <Background color={theme === "dark" ? "#283149" : "#d3d9e4"} gap={18} />
           <Controls />
-          <MiniMap pannable zoomable style={{ background: "#0b0f17" }} nodeColor="#6366f1" />
+          <MiniMap
+            pannable
+            zoomable
+            style={{ background: theme === "dark" ? "#0b0f17" : "#eef1f6" }}
+            nodeColor="#6366f1"
+          />
         </ReactFlow>
       </div>
 
@@ -297,7 +305,7 @@ export default function BuilderPage() {
                 setSelNode(null);
               }}
             >
-              Delete node
+              <Trash2 size={13} /> Delete node
             </button>
           </>
         )}
@@ -315,7 +323,7 @@ export default function BuilderPage() {
               style={{ marginTop: 10 }}
               onClick={() => { setEdges((eds) => eds.filter((e) => e.id !== edge.id)); setSelEdge(null); }}
             >
-              Delete edge
+              <Trash2 size={13} /> Delete edge
             </button>
           </>
         )}

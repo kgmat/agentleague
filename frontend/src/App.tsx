@@ -7,14 +7,24 @@ import MonitorPage from "./pages/MonitorPage";
 import RunDetailPage from "./pages/RunDetailPage";
 import ChannelsPage from "./pages/ChannelsPage";
 import SettingsPage from "./pages/SettingsPage";
+import ThemeToggle from "./components/ThemeToggle";
+import {
+  Activity,
+  Bot,
+  LayoutDashboard,
+  MessageSquare,
+  Settings as SettingsIcon,
+  Workflow,
+  type LucideIcon,
+} from "lucide-react";
 
-const NAV = [
-  { to: "/", label: "Dashboard", icon: "◧", end: true },
-  { to: "/agents", label: "Agents", icon: "🤖", end: false },
-  { to: "/workflows", label: "Workflows", icon: "🕸", end: false },
-  { to: "/monitor", label: "Live Monitor", icon: "📡", end: false },
-  { to: "/channels", label: "Channels", icon: "💬", end: false },
-  { to: "/settings", label: "Settings", icon: "⚙", end: false },
+const NAV: { to: string; label: string; icon: LucideIcon; end: boolean }[] = [
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/agents", label: "Agents", icon: Bot, end: false },
+  { to: "/workflows", label: "Workflows", icon: Workflow, end: false },
+  { to: "/monitor", label: "Live Monitor", icon: Activity, end: false },
+  { to: "/channels", label: "Channels", icon: MessageSquare, end: false },
+  { to: "/settings", label: "Settings", icon: SettingsIcon, end: false },
 ];
 
 export default function App() {
@@ -22,22 +32,25 @@ export default function App() {
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
+          <span className="brand-mark">A</span>
           Agent<span>League</span>
         </div>
-        {NAV.map((n) => (
-          <NavLink
-            key={n.to}
-            to={n.to}
-            end={n.end}
-            className={({ isActive }) => "nav-link" + (isActive ? " active" : "")}
-          >
-            <span>{n.icon}</span> {n.label}
-          </NavLink>
-        ))}
+        {NAV.map((n) => {
+          const Icon = n.icon;
+          return (
+            <NavLink
+              key={n.to}
+              to={n.to}
+              end={n.end}
+              className={({ isActive }) => "nav-link" + (isActive ? " active" : "")}
+            >
+              <span className="nav-ico"><Icon size={18} strokeWidth={2} /></span> {n.label}
+            </NavLink>
+          );
+        })}
         <div className="nav-spacer" />
-        <div style={{ color: "var(--text-faint)", fontSize: 11, padding: "0 12px" }}>
-          LangGraph · FastAPI · Ollama
-        </div>
+        <ThemeToggle />
+        <div className="nav-foot">LangGraph · FastAPI · Ollama</div>
       </aside>
 
       {/* The builder uses a full-bleed canvas, so it manages its own scrolling. */}

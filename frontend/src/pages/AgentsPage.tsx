@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createAgent, deleteAgent, listAgents, updateAgent } from "../api/client";
 import type { Agent, AgentInput } from "../api/types";
 import AgentForm from "../components/AgentForm";
+import { Plus } from "lucide-react";
 
 export default function AgentsPage() {
   const qc = useQueryClient();
@@ -29,7 +30,7 @@ export default function AgentsPage() {
           <h1>Agents</h1>
           <p className="page-sub">Create and configure autonomous agents — personality, model, tools, memory, guardrails.</p>
         </div>
-        <button className="btn primary" onClick={() => setCreating(true)}>+ New agent</button>
+        <button className="btn primary" onClick={() => setCreating(true)}><Plus size={15} /> New agent</button>
       </div>
 
       {!agents?.length ? (

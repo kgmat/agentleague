@@ -8,6 +8,7 @@ import {
   listWorkflows,
 } from "../api/client";
 import { fmtDate } from "../lib/format";
+import { Plus } from "lucide-react";
 
 export default function WorkflowsPage() {
   const qc = useQueryClient();
@@ -56,7 +57,7 @@ export default function WorkflowsPage() {
           <h1>Workflows</h1>
           <p className="page-sub">Wire agents into collaborative graphs with conditions and feedback loops.</p>
         </div>
-        <button className="btn primary" onClick={newWorkflow}>+ New workflow</button>
+        <button className="btn primary" onClick={newWorkflow}><Plus size={15} /> New workflow</button>
       </div>
 
       {!workflows?.length ? (
