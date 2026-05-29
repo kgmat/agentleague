@@ -178,3 +178,17 @@ tr.click:hover td { background: var(--bg-3); }
 .help { color: var(--text-faint); font-size: 12px; margin-top: 4px; }
 .toast { position: fixed; bottom: 22px; right: 22px; background: var(--bg-3); border: 1px solid var(--accent);
   padding: 12px 18px; border-radius: 10px; z-index: 100; box-shadow: var(--shadow); }
+
+/* ---------- Tabs ---------- */
+.tabs { display: flex; gap: 6px; }
+.tab { padding: 5px 13px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg-3); color: var(--text-dim); cursor: pointer; font-size: 12.5px; font-weight: 500; }
+.tab:hover { color: var(--text); }
+.tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ---------- Run timeline (Short view) ---------- */
+.tl-step { border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: 10px; padding: 10px 13px; background: var(--panel); }
+.tl-step .tl-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 13.5px; }
+.tl-step .tl-sum { color: var(--text-dim); margin-top: 6px; white-space: pre-wrap; line-height: 1.5; font-size: 13px; }
+.tl-arrow { color: var(--text-faint); font-size: 12px; margin: 6px 0 6px 16px; }

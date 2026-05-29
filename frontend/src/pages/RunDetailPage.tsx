@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { getRun } from "../api/client";
 import { fmtCost, fmtDate, fmtTime, statusBadge } from "../lib/format";
 import { renderEventLine } from "../lib/events";
 import { useMonitor } from "../hooks/useMonitor";
+import RunTimeline from "../components/RunTimeline";
 
 export default function RunDetailPage() {
   const { id } = useParams();
@@ -22,6 +24,7 @@ export default function RunDetailPage() {
   // Live activity trace for this run (replays persisted history on connect,
   // then streams live — so you always see the full ordered sequence).
   const { events } = useMonitor(id);
+  const [view, setView] = useState<"short" | "details">("short");
 
   if (!run.data) return <div className="empty">Loading run…</div>;
   const r = run.data;
@@ -73,19 +76,32 @@ export default function RunDetailPage() {
         )}
       </div>
 
-      <h3>Activity {r.status === "running" && <span className="badge amber">live</span>}</h3>
-      <div className="log" style={{ height: 260, marginBottom: 20 }}>
-        {events.length === 0 ? (
-          <div className="help">No activity recorded.</div>
-        ) : (
-          events.map((e, i) => (
-            <div className={`log-line evt-${e.type}`} key={i}>
-              <span className="log-ts">{fmtTime(e.ts)} </span>
-              {renderEventLine(e)}
-            </div>
-          ))
-        )}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+        <h3 style={{ margin: 0 }}>Activity {r.status === "running" && <span className="badge amber">live</span>}</h3>
+        <div className="tabs" style={{ margin: 0 }}>
+          <button className={"tab" + (view === "short" ? " active" : "")} onClick={() => setView("short")}>Short</button>
+          <button className={"tab" + (view === "details" ? " active" : "")} onClick={() => setView("details")}>Details</button>
+        </div>
       </div>
+
+      {view === "short" ? (
+        <div style={{ marginBottom: 20 }}>
+          <RunTimeline events={events} />
+        </div>
+      ) : (
+        <div className="log" style={{ height: 320, marginBottom: 20 }}>
+          {events.length === 0 ? (
+            <div className="help">No activity recorded.</div>
+          ) : (
+            events.map((e, i) => (
+              <div className={`log-line evt-${e.type}`} key={i}>
+                <span className="log-ts">{fmtTime(e.ts)} </span>
+                {renderEventLine(e)}
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       <h3>Conversation & inter-agent messages</h3>
       {r.messages.length === 0 ? (
